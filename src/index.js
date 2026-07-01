@@ -1,16 +1,45 @@
 import 'dotenv/config'
+import { createServer } from 'http'
 import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
-import qrcode from 'qrcode-terminal'
+import qrcodeTerminal from 'qrcode-terminal'
+import QRCode from 'qrcode'
 import pino from 'pino'
 import { parseMessage } from './parser.js'
 import { writeStats } from './sheets.js'
 import { getMemberByPhone, getMemberByPushName } from './members.js'
 
 const GROUP_NAME = process.env.WHATSAPP_GROUP_NAME || 'Referral Exchange'
-const logger = pino({ level: 'warn' }) // suppress Baileys debug noise
+const PORT = process.env.PORT || 3000
+const logger = pino({ level: 'warn' })
 
 let targetGroupJid = null
+let currentQR = null
+let isConnected = false
+
+// Simple HTTP server — serves QR code page so it can be scanned remotely
+createServer(async (req, res) => {
+  if (isConnected) {
+    res.writeHead(200, { 'Content-Type': 'text/html' })
+    res.end('<h1 style="font-family:sans-serif;color:green">✓ WhatsApp Connected</h1><p>Bot is running.</p>')
+    return
+  }
+  if (!currentQR) {
+    res.writeHead(200, { 'Content-Type': 'text/html' })
+    res.end('<h1 style="font-family:sans-serif">Waiting for QR...</h1><p>Refresh in a few seconds.</p>')
+    return
+  }
+  const imgDataUrl = await QRCode.toDataURL(currentQR, { width: 300 })
+  res.writeHead(200, { 'Content-Type': 'text/html' })
+  res.end(`
+    <html><body style="font-family:sans-serif;text-align:center;padding:40px">
+      <h2>Scan with WhatsApp</h2>
+      <p>WhatsApp → Linked Devices → Link a Device</p>
+      <img src="${imgDataUrl}" style="width:300px;height:300px"/>
+      <p><small>Refresh page if QR expires</small></p>
+    </body></html>
+  `)
+}).listen(PORT, () => console.log(`QR server running on port ${PORT}`))
 
 async function findGroup(sock) {
   const groups = await sock.groupFetchAllParticipating()
@@ -43,7 +72,6 @@ async function handleMessage(sock, msg) {
   const pushName  = msg.pushName || ''
   const msgDate   = new Date((msg.messageTimestamp || Date.now() / 1000) * 1000)
 
-  // Identify member
   let member = getMemberByPhone(senderJid)
   if (!member) member = getMemberByPushName(pushName)
 
@@ -54,7 +82,6 @@ async function handleMessage(sock, msg) {
 
   console.log(`[MSG] ${member.name}: "${body.slice(0, 80)}"`)
 
-  // Parse with AI
   const parsed = await parseMessage(body)
   if (!parsed.has_stats) {
     console.log(`[SKIP] No stats detected`)
@@ -67,7 +94,6 @@ async function handleMessage(sock, msg) {
 
   console.log(`[STATS] ${member.name}:`, parsed.stats)
 
-  // Write to sheet
   const result = await writeStats(member.tab, parsed.stats, msgDate)
   if (result.success) {
     console.log(`[WROTE] row ${result.row} — ${result.written.join(', ')}`)
@@ -91,24 +117,26 @@ async function connect() {
 
   sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (qr) {
-      console.log('\nScan this QR code with WhatsApp (Linked Devices):\n')
-      qrcode.generate(qr, { small: true })
-      // Also log a URL for easy scanning from Railway logs
-      const encoded = encodeURIComponent(qr)
-      console.log(`\nOr open this link on your phone to scan:\nhttps://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encoded}\n`)
+      currentQR = qr
+      isConnected = false
+      console.log('\nQR ready — open the Railway service URL in your browser to scan\n')
+      qrcodeTerminal.generate(qr, { small: true })
     }
 
     if (connection === 'open') {
+      isConnected = true
+      currentQR = null
       console.log('WhatsApp connected!')
       targetGroupJid = await findGroup(sock)
       if (!targetGroupJid) {
-        console.error(`Group "${GROUP_NAME}" not found. Set WHATSAPP_GROUP_NAME in .env to match one of the groups above.`)
+        console.error(`Group "${GROUP_NAME}" not found. Set WHATSAPP_GROUP_NAME in env vars.`)
       } else {
         console.log(`Listening to group: ${GROUP_NAME}`)
       }
     }
 
     if (connection === 'close') {
+      isConnected = false
       const code = new Boom(lastDisconnect?.error)?.output?.statusCode
       const shouldReconnect = code !== DisconnectReason.loggedOut
       console.log('Connection closed. Code:', code, '— reconnecting:', shouldReconnect)
