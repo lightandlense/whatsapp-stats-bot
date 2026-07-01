@@ -93,6 +93,9 @@ async function connect() {
     if (qr) {
       console.log('\nScan this QR code with WhatsApp (Linked Devices):\n')
       qrcode.generate(qr, { small: true })
+      // Also log a URL for easy scanning from Railway logs
+      const encoded = encodeURIComponent(qr)
+      console.log(`\nOr open this link on your phone to scan:\nhttps://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encoded}\n`)
     }
 
     if (connection === 'open') {
