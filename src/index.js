@@ -1,5 +1,7 @@
 import 'dotenv/config'
 import { createServer } from 'http'
+import { mkdirSync, writeFileSync, existsSync } from 'fs'
+import { join, dirname } from 'path'
 import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
 import qrcodeTerminal from 'qrcode-terminal'
@@ -8,6 +10,19 @@ import pino from 'pino'
 import { parseMessage } from './parser.js'
 import { writeStats } from './sheets.js'
 import { getMemberByPhone, getMemberByPushName } from './members.js'
+
+// Restore auth files from env var (Railway deployment)
+if (process.env.WHATSAPP_AUTH_JSON) {
+  const files = JSON.parse(process.env.WHATSAPP_AUTH_JSON)
+  for (const [filePath, content] of Object.entries(files)) {
+    const fullPath = join('./auth_info', filePath)
+    if (!existsSync(fullPath)) {
+      mkdirSync(dirname(fullPath), { recursive: true })
+      writeFileSync(fullPath, content, 'utf8')
+    }
+  }
+  console.log('Auth session restored from env var')
+}
 
 const GROUP_NAME = process.env.WHATSAPP_GROUP_NAME || 'Referral Exchange'
 const PORT = process.env.PORT || 3000
