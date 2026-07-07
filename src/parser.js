@@ -25,7 +25,8 @@ Rules:
 - CEU = ignore completely
 - Pure conversation messages = {"has_stats": false, "stats": []}
 - Dollar amounts: strip $ and commas, return as number (e.g. "$1,200" = 1200)
-- A message can have multiple stats`
+- A message can have multiple stats
+- "1-2-1", "1.2.1", or "121" is common shorthand for a one-to-one meeting. A leading number is the count (e.g. "1 1-2-1" or "1 1.2.1" = one one_to_one)`
 
 export async function parseMessage(text) {
   if (!text || text.trim().length === 0) return { has_stats: false, stats: [] }
