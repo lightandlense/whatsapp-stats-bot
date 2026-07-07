@@ -58,12 +58,25 @@ createServer(async (req, res) => {
 
 async function findGroup(sock) {
   const groups = await sock.groupFetchAllParticipating()
-  for (const [jid, meta] of Object.entries(groups)) {
-    if (meta.subject.toLowerCase().includes(GROUP_NAME.toLowerCase())) {
-      console.log(`Found group: "${meta.subject}" (${jid})`)
-      return jid
-    }
+  const want = GROUP_NAME.trim().toLowerCase()
+
+  const exact = Object.entries(groups).find(([, meta]) => meta.subject.trim().toLowerCase() === want)
+  if (exact) {
+    console.log(`Found group (exact): "${exact[1].subject}" (${exact[0]})`)
+    return exact[0]
   }
+
+  const partial = Object.entries(groups).filter(([, meta]) => meta.subject.toLowerCase().includes(want))
+  if (partial.length === 1) {
+    console.log(`Found group (partial): "${partial[0][1].subject}" (${partial[0][0]})`)
+    return partial[0][0]
+  }
+  if (partial.length > 1) {
+    console.error(`WHATSAPP_GROUP_NAME "${GROUP_NAME}" matches ${partial.length} groups — set it to the exact name of one:`)
+    for (const [jid, meta] of partial) console.error(`  "${meta.subject}" → ${jid}`)
+    return null
+  }
+
   console.log('Available groups:')
   for (const [jid, meta] of Object.entries(groups)) {
     console.log(`  "${meta.subject}" → ${jid}`)
