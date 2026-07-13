@@ -53,8 +53,13 @@ export async function parseMessage(text) {
     const data = await response.json()
     raw = data.choices?.[0]?.message?.content?.trim() || ''
 
-    const json = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/, '').trim()
-    return JSON.parse(json)
+    // llama sometimes wraps the JSON in a fence or trails an explanation after it —
+    // slice from the first { to the last } to isolate the object. ponytail: assumes
+    // no stray braces in surrounding prose, which holds for this model's output.
+    const start = raw.indexOf('{')
+    const end = raw.lastIndexOf('}')
+    if (start === -1 || end === -1) throw new Error(`no JSON object in response: ${raw.slice(0, 120)}`)
+    return JSON.parse(raw.slice(start, end + 1))
   } catch (err) {
     console.error('Parser failed:', err.message, '| raw:', raw.slice(0, 200))
     return { has_stats: false, stats: [] }
