@@ -16,6 +16,11 @@ const COLUMNS = {
   visitors_count:         'J',
 }
 
+// ponytail: opt-in cell highlight for the test sheet so writes are visible without
+// knowing every column by heart. Set HIGHLIGHT_WRITES=true only on the test deploy.
+const HIGHLIGHT_WRITES = process.env.HIGHLIGHT_WRITES === 'true'
+const sheetIdCache = new Map()
+
 let sheetsClient = null
 
 function getClient() {
@@ -73,6 +78,33 @@ function parseDateRange(rangeStr, year) {
   return { start, end }
 }
 
+async function getSheetId(sheets, tabName) {
+  if (sheetIdCache.has(tabName)) return sheetIdCache.get(tabName)
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
+  for (const s of meta.data.sheets) sheetIdCache.set(s.properties.title, s.properties.sheetId)
+  return sheetIdCache.get(tabName)
+}
+
+// Colors the written cell yellow so a changed number stands out at a glance
+async function highlightCell(sheets, tabName, row, col) {
+  if (!HIGHLIGHT_WRITES) return
+  const sheetId = await getSheetId(sheets, tabName)
+  if (sheetId === undefined) return
+  const colIndex = col.charCodeAt(0) - 65 // A=0; sheet only uses single-letter columns B-J
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [{
+        repeatCell: {
+          range: { sheetId, startRowIndex: row - 1, endRowIndex: row, startColumnIndex: colIndex, endColumnIndex: colIndex + 1 },
+          cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 0.92, blue: 0.23 } } },
+          fields: 'userEnteredFormat.backgroundColor',
+        },
+      }],
+    },
+  })
+}
+
 // Append (add) a numeric value to a cell (reading current value first)
 async function addToCell(sheets, tabName, row, col, value) {
   const cellRef = `'${tabName}'!${col}${row}`
@@ -89,6 +121,7 @@ async function addToCell(sheets, tabName, row, col, value) {
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[newVal]] },
   })
+  await highlightCell(sheets, tabName, row, col)
   return newVal
 }
 
@@ -109,6 +142,7 @@ async function appendText(sheets, tabName, row, col, text) {
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[newVal]] },
   })
+  await highlightCell(sheets, tabName, row, col)
 }
 
 export async function writeStats(tabName, stats, messageDate) {
