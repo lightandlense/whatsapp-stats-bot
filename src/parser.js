@@ -28,6 +28,22 @@ Rules:
 - A message can have multiple stats
 - "1-2-1", "1.2.1", or "121" is common shorthand for a one-to-one meeting. A leading number is the count (e.g. "1 1-2-1" or "1 1.2.1" = one one_to_one)`
 
+// finds the FIRST balanced {...} object, ignoring anything the model appends after it
+// (llama-3.1-8b-instant sometimes echoes/duplicates its answer even at temperature 0)
+export function extractFirstJsonObject(raw) {
+  const start = raw.indexOf('{')
+  if (start === -1) return null
+  let depth = 0
+  for (let i = start; i < raw.length; i++) {
+    if (raw[i] === '{') depth++
+    else if (raw[i] === '}') {
+      depth--
+      if (depth === 0) return raw.slice(start, i + 1)
+    }
+  }
+  return null
+}
+
 export async function parseMessage(text) {
   if (!text || text.trim().length === 0) return { has_stats: false, stats: [] }
 
@@ -53,13 +69,9 @@ export async function parseMessage(text) {
     const data = await response.json()
     raw = data.choices?.[0]?.message?.content?.trim() || ''
 
-    // llama sometimes wraps the JSON in a fence or trails an explanation after it —
-    // slice from the first { to the last } to isolate the object. ponytail: assumes
-    // no stray braces in surrounding prose, which holds for this model's output.
-    const start = raw.indexOf('{')
-    const end = raw.lastIndexOf('}')
-    if (start === -1 || end === -1) throw new Error(`no JSON object in response: ${raw.slice(0, 120)}`)
-    return JSON.parse(raw.slice(start, end + 1))
+    const jsonStr = extractFirstJsonObject(raw)
+    if (!jsonStr) throw new Error(`no JSON object in response: ${raw.slice(0, 120)}`)
+    return JSON.parse(jsonStr)
   } catch (err) {
     console.error('Parser failed:', err.message, '| raw:', raw.slice(0, 200))
     return { has_stats: false, stats: [] }
