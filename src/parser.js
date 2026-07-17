@@ -44,36 +44,55 @@ export function extractFirstJsonObject(raw) {
   return null
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Groq's free tier is 6000 tokens/minute for this model — our ~450-token request
+// caps out around 13/min, so bursts of group activity trip 429s regularly.
+// ponytail: fixed retry count/backoff, revisit if 429s still slip through in prod logs.
+const MAX_RETRIES = 3
+
 export async function parseMessage(text) {
   if (!text || text.trim().length === 0) return { has_stats: false, stats: [] }
 
   let raw = ''
-  try {
-    const response = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: text },
-        ],
-        temperature: 0,
-        max_tokens: 256,
-      }),
-    })
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(GROQ_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: text },
+          ],
+          temperature: 0,
+          max_tokens: 256,
+        }),
+      })
 
-    const data = await response.json()
-    raw = data.choices?.[0]?.message?.content?.trim() || ''
+      if (response.status === 429 && attempt < MAX_RETRIES) {
+        const retryAfter = Number(response.headers.get('retry-after')) || 2
+        console.warn(`Parser rate-limited (attempt ${attempt + 1}/${MAX_RETRIES}), retrying in ${retryAfter}s`)
+        await sleep(retryAfter * 1000)
+        continue
+      }
 
-    const jsonStr = extractFirstJsonObject(raw)
-    if (!jsonStr) throw new Error(`no JSON object in response: ${raw.slice(0, 120)}`)
-    return JSON.parse(jsonStr)
-  } catch (err) {
-    console.error('Parser failed:', err.message, '| raw:', raw.slice(0, 200))
-    return { has_stats: false, stats: [] }
+      const data = await response.json()
+      raw = data.choices?.[0]?.message?.content?.trim() || ''
+
+      const jsonStr = extractFirstJsonObject(raw)
+      if (!jsonStr) throw new Error(`no JSON object in response: ${raw.slice(0, 120)}`)
+      return JSON.parse(jsonStr)
+    } catch (err) {
+      console.error('Parser failed:', err.message, '| raw:', raw.slice(0, 200))
+      return { has_stats: false, stats: [] }
+    }
   }
+
+  console.error('Parser failed: exhausted retries after repeated 429s')
+  return { has_stats: false, stats: [] }
 }
