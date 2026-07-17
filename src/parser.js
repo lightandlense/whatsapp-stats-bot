@@ -47,9 +47,12 @@ export function extractFirstJsonObject(raw) {
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // Groq's free tier is 6000 tokens/minute for this model — our ~450-token request
-// caps out around 13/min, so bursts of group activity trip 429s regularly.
-// ponytail: fixed retry count/backoff, revisit if 429s still slip through in prod logs.
-const MAX_RETRIES = 3
+// caps out around 13/min, so bursts of group activity (e.g. a backlog of messages
+// delivered at once after a reconnect) trip 429s. We'd rather wait out the full
+// per-minute window than ever drop a stat, so retry generously.
+// ponytail: retry-after-driven backoff bounded at 20 tries (~a couple minutes worst
+// case), revisit if a single burst is ever big enough to outlast that.
+const MAX_RETRIES = 20
 
 export async function parseMessage(text) {
   if (!text || text.trim().length === 0) return { has_stats: false, stats: [] }
