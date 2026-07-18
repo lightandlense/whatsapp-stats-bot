@@ -2,7 +2,7 @@ import 'dotenv/config'
 import { createServer } from 'http'
 import { mkdirSync, writeFileSync, existsSync } from 'fs'
 import { join, dirname } from 'path'
-import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } from '@whiskeysockets/baileys'
+import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
 import qrcodeTerminal from 'qrcode-terminal'
 import QRCode from 'qrcode'
@@ -94,9 +94,14 @@ async function handleMessage(sock, msg) {
     msg.message?.imageMessage?.caption ||
     ''
 
-  if (!body || msg.key.fromMe) return
+  if (!body) return
 
-  const senderJid = msg.key.participant || msg.key.remoteJid
+  // ponytail: bot never sends group messages itself, so fromMe:true only ever
+  // means "sent from Russell's own phone" (Baileys doesn't set key.participant
+  // for self-sent group messages — fall back to the connected account's JID).
+  const senderJid = msg.key.fromMe
+    ? jidNormalizedUser(sock.user.id)
+    : (msg.key.participant || msg.key.remoteJid)
   const pushName  = msg.pushName || ''
   const msgDate   = new Date((msg.messageTimestamp || Date.now() / 1000) * 1000)
 
