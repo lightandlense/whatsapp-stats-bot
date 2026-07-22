@@ -8,6 +8,7 @@ export const MEMBERS = {
   '17192192190': { name: 'Brandy Pendleton',  tab: 'Brandy Pendleton',  business: 'Pendleton Heating and Cooling' },
   '17194932734': { name: 'Brittney Geisler',  tab: 'Brittney Geisler',  business: 'Closet Factory' },
   '17196198616': { name: 'Cindy Sabbogh',     tab: 'Cindy Sabbogh',     business: 'Best Option Restoration' },
+  '12549138611': { name: 'Carmen Mosnia-Hodge', tab: 'Carmen Mosnia-Hodge', business: 'Vogue Vignette' },
   '17194280479': { name: 'Craig Kallian',     tab: 'Craig Kallian',     business: 'Olive Real Estate Group' },
   '18159008115': { name: 'Daniel Trost',      tab: 'Daniel Trost',      business: 'Oxi Fresh Carpet Cleaning' },
   '17202156292': { name: 'Daniel Boone',      tab: 'Daniel Boone',      business: 'Rhino Construction' },
