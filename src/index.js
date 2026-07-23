@@ -130,6 +130,7 @@ async function handleMessage(sock, msg) {
   const result = await writeStats(member.tab, parsed.stats, msgDate)
   if (result.success) {
     console.log(`[WROTE] row ${result.row} — ${result.written.join(', ')}`)
+    await sock.sendMessage(jid, { react: { text: '👍', key: msg.key } })
   } else {
     console.warn(`[FAIL] ${result.reason}`)
   }
