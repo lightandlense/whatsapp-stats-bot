@@ -25,8 +25,9 @@ Rules:
 - CEU = ignore completely
 - Pure conversation messages = {"has_stats": false, "stats": []}
 - Dollar amounts: strip $ and commas, return as number (e.g. "$1,200" = 1200)
-- A message can have multiple stats
-- "1-2-1", "1.2.1", or "121" is common shorthand for a one-to-one meeting. A leading number is the count (e.g. "1 1-2-1" or "1 1.2.1" = one one_to_one)`
+- A message can have multiple stats, but never more than ONE object per stat type unless the message clearly describes separate, distinct events (e.g. two different one-to-ones named on two different lines). If in doubt, merge into a single object of that type rather than emitting duplicates.
+- "1-2-1", "1.2.1", or "121" is common shorthand for a one-to-one meeting. The count can appear BEFORE or AFTER it: "1 1-2-1" and "1-2-1 - 1" both mean one one_to_one; "1.2.1 - 0" means zero one_to_ones (an explicit reported zero, not "ignore this line").
+- A line of names following a referral count line (e.g. "Outside - 3" then "1 Trey 1 Kyle 1 Tanner") is who THAT referral went to — attach them as "names" on the outside_referral/inside_referral object. Never turn a names line into its own separate stat object (not a one_to_one, not anything else).`
 
 // finds the FIRST balanced {...} object, ignoring anything the model appends after it
 // (llama-3.1-8b-instant sometimes echoes/duplicates its answer even at temperature 0)

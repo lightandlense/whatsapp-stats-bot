@@ -178,11 +178,16 @@ export async function writeStats(tabName, stats, messageDate) {
         written.push(`one-to-one ×${stat.count}`)
         break
 
-      case 'closed_business':
-        if (stat.amount) await addToCell(sheets, tabName, row, COLUMNS.closed_business_amount, stat.amount)
-        if (names)       await appendText(sheets, tabName, row, COLUMNS.closed_business_who, names)
-        written.push(`closed $${stat.amount}`)
+      case 'closed_business': {
+        // the parser occasionally returns `count` instead of `amount` for a
+        // zero/no-op report (e.g. "CB - 0") - falls back so the log doesn't
+        // print "$undefined" for what's really just a reported zero
+        const amount = stat.amount ?? stat.count ?? 0
+        if (amount) await addToCell(sheets, tabName, row, COLUMNS.closed_business_amount, amount)
+        if (names)  await appendText(sheets, tabName, row, COLUMNS.closed_business_who, names)
+        written.push(`closed $${amount}`)
         break
+      }
 
       case 'visitors':
         if (stat.count) await addToCell(sheets, tabName, row, COLUMNS.visitors_count, stat.count)
