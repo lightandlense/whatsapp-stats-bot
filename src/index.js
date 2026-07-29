@@ -31,6 +31,20 @@ const logger = pino({ level: 'warn' })
 let targetGroupJid = null
 let currentQR = null
 let isConnected = false
+let disconnectedSince = null
+
+// Watchdog: Baileys' own reconnect loop (setTimeout(connect, 5000) below) can
+// retry forever without ever recovering (seen 2026-07-28/29 — stuck in a
+// Code 405 reconnect loop ~18 hours, Railway never restarts a process that
+// never exits). If we've been disconnected continuously past this threshold,
+// exit so Railway's restart policy gives us a genuinely fresh container/session.
+const STUCK_DISCONNECTED_MS = 10 * 60 * 1000
+setInterval(() => {
+  if (disconnectedSince && Date.now() - disconnectedSince > STUCK_DISCONNECTED_MS) {
+    console.error(`Disconnected for over ${STUCK_DISCONNECTED_MS / 60000} min with no successful reconnect — exiting so Railway restarts fresh.`)
+    process.exit(1)
+  }
+}, 60 * 1000)
 
 // Simple HTTP server — serves QR code page so it can be scanned remotely
 createServer(async (req, res) => {
@@ -159,6 +173,7 @@ async function connect() {
 
     if (connection === 'open') {
       isConnected = true
+      disconnectedSince = null
       currentQR = null
       console.log('WhatsApp connected!')
       targetGroupJid = await findGroup(sock)
@@ -171,6 +186,7 @@ async function connect() {
 
     if (connection === 'close') {
       isConnected = false
+      if (!disconnectedSince) disconnectedSince = Date.now()
       const code = new Boom(lastDisconnect?.error)?.output?.statusCode
       const shouldReconnect = code !== DisconnectReason.loggedOut
       console.log('Connection closed. Code:', code, '— reconnecting:', shouldReconnect)
