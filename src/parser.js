@@ -26,7 +26,8 @@ Rules:
 - Pure conversation messages = {"has_stats": false, "stats": []}
 - Dollar amounts: strip $ and commas, return as number (e.g. "$1,200" = 1200)
 - A message can have multiple stats, but never more than ONE object per stat type unless the message clearly describes separate, distinct events (e.g. two different one-to-ones named on two different lines). If in doubt, merge into a single object of that type rather than emitting duplicates.
-- "1-2-1", "1.2.1", or "121" is common shorthand for a one-to-one meeting. The count can appear BEFORE or AFTER it: "1 1-2-1" and "1-2-1 - 1" both mean one one_to_one; "1.2.1 - 0" means zero one_to_ones (an explicit reported zero, not "ignore this line").
+- "1-2-1", "1.2.1", "121", "1on1", "1-on-1", or "one on one" are all common shorthand for a one-to-one meeting, regardless of spacing/punctuation. The count can appear BEFORE or AFTER it: "1 1-2-1", "1-2-1 - 1", and "1 1on1" all mean one one_to_one; "1.2.1 - 0" means zero one_to_ones (an explicit reported zero, not "ignore this line").
+- Never let one unfamiliar or unmatched line (e.g. a CEU note, a stray comment) cause you to drop stats reported elsewhere in the SAME message. Extract every recognizable stat line independently; only lines you truly cannot parse get ignored on their own, not the whole message.
 - A line of names following a referral count line (e.g. "Outside - 3" then "1 Trey 1 Kyle 1 Tanner") is who THAT referral went to — attach them as "names" on the outside_referral/inside_referral object. Never turn a names line into its own separate stat object (not a one_to_one, not anything else).`
 
 // finds the FIRST balanced {...} object, ignoring anything the model appends after it
