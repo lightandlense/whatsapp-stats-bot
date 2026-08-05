@@ -39,6 +39,7 @@ export const NAME_ALIASES = {
   'shawn':                   'Shawn Herlihy',
   'rabbit':                  'Kierstin (Rabbit) Garduno',
   'jackson':                 'Jackson Diego',
+  'jmill':                   'Jordan Milligan',
 }
 
 export function getMemberByPhone(jid) {
