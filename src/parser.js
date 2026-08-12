@@ -27,8 +27,15 @@ Rules:
 - Dollar amounts: strip $ and commas, return as number (e.g. "$1,200" = 1200)
 - A message can have multiple stats, but never more than ONE object per stat type unless the message clearly describes separate, distinct events (e.g. two different one-to-ones named on two different lines). If in doubt, merge into a single object of that type rather than emitting duplicates.
 - "1-2-1", "1.2.1", "121", "1on1", "1-on-1", or "one on one" are all common shorthand for a one-to-one meeting, regardless of spacing/punctuation. The count can appear BEFORE or AFTER it: "1 1-2-1", "1-2-1 - 1", and "1 1on1" all mean one one_to_one; "1.2.1 - 0" means zero one_to_ones (an explicit reported zero, not "ignore this line").
+- "CB" is shorthand for closed_business. A dollar amount next to "CB" is the closed_business amount regardless of order or joining word: "$716 CB", "CB - $716", "CB $716", and "$716 in CB" all mean one closed_business object with amount 716.
+- CEU produces NO object, ever — not even a zero-count one. Its own number (e.g. the "2" in "CEU - 2") is not a stat and must never become a one_to_one, closed_business, or any other object. This applies whether CEU is on its own line or joined to a real stat with "&"/"and"/"/"/a comma (e.g. "1 CEU & $716 CB" = ONLY a closed_business amount 716 object, nothing for the CEU part). CEU near a stat line never changes or duplicates that stat's own count.
 - Never let one unfamiliar or unmatched line (e.g. a CEU note, a stray comment) cause you to drop stats reported elsewhere in the SAME message. Extract every recognizable stat line independently; only lines you truly cannot parse get ignored on their own, not the whole message.
-- A line of names following a referral count line (e.g. "Outside - 3" then "1 Trey 1 Kyle 1 Tanner") is who THAT referral went to — attach them as "names" on the outside_referral/inside_referral object. Never turn a names line into its own separate stat object (not a one_to_one, not anything else).`
+- A line of names following a referral count line (e.g. "Outside - 3" then "1 Trey 1 Kyle 1 Tanner") is who THAT referral went to — attach them as "names" on the outside_referral/inside_referral object. Never turn a names line into its own separate stat object (not a one_to_one, not anything else).
+
+Worked example — input:
+"1.2.1 - 0 / CEU - 2 / Inside - 0 / Outside - 3 / 1 Trey 1 Kyle 1 Tanner / CB - 0"
+Correct output (note: exactly one object per line that is an actual stat type; the CEU line contributes nothing at all, not even using its "2"):
+{"has_stats": true, "stats": [{"type": "one_to_one", "count": 0, "amount": null, "names": []}, {"type": "inside_referral", "count": 0, "amount": null, "names": []}, {"type": "outside_referral", "count": 3, "amount": null, "names": ["Trey", "Kyle", "Tanner"]}, {"type": "closed_business", "count": null, "amount": 0, "names": []}]}`
 
 // finds the FIRST balanced {...} object, ignoring anything the model appends after it
 // (llama-3.1-8b-instant sometimes echoes/duplicates its answer even at temperature 0)
