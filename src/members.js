@@ -40,6 +40,7 @@ export const NAME_ALIASES = {
   'rabbit':                  'Kierstin (Rabbit) Garduno',
   'jackson':                 'Jackson Diego',
   'jmill':                   'Jordan Milligan',
+  'angie':                   'Angelica Lujan',
 }
 
 export function getMemberByPhone(jid) {

@@ -94,6 +94,21 @@ export async function parseMessage(text) {
       }
 
       const data = await response.json()
+
+      // An API-level failure (bad/revoked key, decommissioned model, quota) returns
+      // no `choices` at all. Left unchecked it collapses into raw='' and looks
+      // identical to "this message had no stats" — which is how a revoked key
+      // silently ate every stat for days in Aug 2026. Surface it loudly and
+      // return api_error so the caller never mistakes it for a clean no-op.
+      if (data.error || !data.choices) {
+        console.error(
+          `[PARSER-API-FAIL] HTTP ${response.status} — ${data.error?.code || 'no_choices'}: ` +
+          `${data.error?.message || JSON.stringify(data).slice(0, 200)} ` +
+          `>>> STAT NOT RECORDED, message text: "${text.slice(0, 120)}"`
+        )
+        return { has_stats: false, stats: [], api_error: true }
+      }
+
       raw = data.choices?.[0]?.message?.content?.trim() || ''
 
       const jsonStr = extractFirstJsonObject(raw)
@@ -101,10 +116,10 @@ export async function parseMessage(text) {
       return JSON.parse(jsonStr)
     } catch (err) {
       console.error('Parser failed:', err.message, '| raw:', raw.slice(0, 200))
-      return { has_stats: false, stats: [] }
+      return { has_stats: false, stats: [], api_error: true }
     }
   }
 
   console.error('Parser failed: exhausted retries after repeated 429s')
-  return { has_stats: false, stats: [] }
+  return { has_stats: false, stats: [], api_error: true }
 }

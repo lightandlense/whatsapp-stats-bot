@@ -130,6 +130,12 @@ async function handleMessage(sock, msg) {
   console.log(`[MSG] ${member.name}: "${body.slice(0, 80)}"`)
 
   const parsed = await parseMessage(body)
+  if (parsed.api_error) {
+    // Not "no stats" — the parser never got an answer. Distinct log line so this
+    // is greppable and never blends into normal chatter being skipped.
+    console.error(`[LOST] ${member.name}'s stat was DROPPED (parser API failure): "${body.slice(0, 120)}"`)
+    return
+  }
   if (!parsed.has_stats) {
     console.log(`[SKIP] No stats detected`)
     return
