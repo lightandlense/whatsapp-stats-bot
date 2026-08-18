@@ -7,7 +7,7 @@ import { Boom } from '@hapi/boom'
 import qrcodeTerminal from 'qrcode-terminal'
 import QRCode from 'qrcode'
 import pino from 'pino'
-import { parseMessage } from './parser.js'
+import { parseMessage, logParserConfig } from './parser.js'
 import { writeStats } from './sheets.js'
 import { getMemberByPhone, getMemberByPushName } from './members.js'
 
@@ -212,4 +212,5 @@ async function connect() {
   })
 }
 
+logParserConfig()
 connect()

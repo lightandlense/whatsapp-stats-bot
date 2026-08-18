@@ -7,6 +7,13 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 // so the next retirement is a Railway variable change, not a redeploy.
 const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b'
 
+// Printed at boot. Two Railway builds failed silently on 2026-08-18 while an older
+// image kept serving a decommissioned model, and there was no way to tell which
+// model was actually live from the outside. Now every container says so on line one.
+export function logParserConfig() {
+  console.log(`[CONFIG] Parser model: ${MODEL}`)
+}
+
 const SYSTEM_PROMPT = `You are a stat extractor for a business referral exchange group WhatsApp chat.
 
 Your job: read a WhatsApp message and extract any business stats reported.
