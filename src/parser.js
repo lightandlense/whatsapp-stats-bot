@@ -2,7 +2,10 @@
 // Get a free API key at console.groq.com
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const MODEL = 'llama-3.1-8b-instant'
+// Groq retires models with little notice — llama-3.1-8b-instant vanished from the
+// catalog in Aug 2026 and every parse silently failed. Keep this overridable by env
+// so the next retirement is a Railway variable change, not a redeploy.
+const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b'
 
 const SYSTEM_PROMPT = `You are a stat extractor for a business referral exchange group WhatsApp chat.
 
@@ -82,7 +85,13 @@ export async function parseMessage(text) {
             { role: 'user', content: text },
           ],
           temperature: 0,
-          max_tokens: 256,
+          // Groq's current models emit reasoning before the answer. Without JSON
+          // mode they prepend a <think>/analysis block that blew past the old
+          // 256-token cap and truncated the JSON mid-object. json_object forces a
+          // bare object, low effort keeps latency near the old 8b-instant.
+          response_format: { type: 'json_object' },
+          ...(MODEL.startsWith('openai/gpt-oss') ? { reasoning_effort: 'low' } : {}),
+          max_tokens: 1200,
         }),
       })
 
