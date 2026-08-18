@@ -34,6 +34,7 @@ Rules:
 - CEU produces NO object, ever — not even a zero-count one. Its own number (e.g. the "2" in "CEU - 2") is not a stat and must never become a one_to_one, closed_business, or any other object. This applies whether CEU is on its own line or joined to a real stat with "&"/"and"/"/"/a comma (e.g. "1 CEU & $716 CB" = ONLY a closed_business amount 716 object, nothing for the CEU part). CEU near a stat line never changes or duplicates that stat's own count.
 - Never let one unfamiliar or unmatched line (e.g. a CEU note, a stray comment) cause you to drop stats reported elsewhere in the SAME message. Extract every recognizable stat line independently; only lines you truly cannot parse get ignored on their own, not the whole message.
 - A line of names following a referral count line (e.g. "Outside - 3" then "1 Trey 1 Kyle 1 Tanner") is who THAT referral went to — attach them as "names" on the outside_referral/inside_referral object. Never turn a names line into its own separate stat object (not a one_to_one, not anything else).
+- A thank-you naming a person in a message that reports closed business ("Thanks Shawn!", "Thank you Shawn", "thanks to Shawn") credits who SENT that referral — attach that name to the closed_business object's "names". A thank-you is never its own stat object.
 
 Worked example — input:
 "1.2.1 - 0 / CEU - 2 / Inside - 0 / Outside - 3 / 1 Trey 1 Kyle 1 Tanner / CB - 0"

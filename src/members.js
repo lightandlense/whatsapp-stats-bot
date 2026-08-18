@@ -14,7 +14,6 @@ export const MEMBERS = {
   '17202156292': { name: 'Daniel Boone',      tab: 'Daniel Boone',      business: 'Rhino Construction' },
   '17193068965': { name: 'David Turner',      tab: 'David Turner',      business: 'Poop Ninja' },
   '17194408614': { name: 'Donna Quick',       tab: 'Donna Quick',       business: 'Choice Flooring' },
-  '17193452535': { name: 'Jackson Diego',     tab: 'Jackson Diego',     business: 'Color2Color Painting' },
   '18124998409': { name: 'Jordan Milligan',   tab: 'Jordan Milligan',   business: 'Milligan Design & Build' },
   '17196844073': { name: 'Justin Hinze',      tab: 'Justin Hinze',      business: 'Edward Jones' },
   '17199850980': { name: 'Kyle Mackiewicz',   tab: 'Kyle Mackiewicz',   business: 'Mack Renovations' },
@@ -22,7 +21,7 @@ export const MEMBERS = {
   '17192336451': { name: 'Matt Martinez',     tab: 'Matt Martinez',     business: 'Huntington Bank' },
   '17193518993': { name: 'Michael Schmidt',   tab: 'Michael Schmidt',   business: 'Rightour Kombucha' },
   '15868992738': { name: 'Neil Correll',      tab: 'Neil Correll',      business: 'Venterra Real Estate' },
-  '17193452535': { name: 'Kierstin (Rabbit) Garduno',    tab: 'Kierstin (Rabbit) Garduno',    business: 'Color2Color Painting' }, // same number as Jackson — WhatsApp name used as tiebreaker
+  '17193452535': { name: 'Kierstin (Rabbit) Garduno',    tab: 'Kierstin (Rabbit) Garduno',    business: 'Color2Color Painting' },
   '17195223331': { name: 'Russell Klimas',    tab: 'Russell Klimas',    business: 'Parsimony Labs' },
   '17192332411': { name: 'Shawn Herlihy',     tab: 'Shawn Herlihy',     business: 'Granite Bank' },
   '18104492252': { name: 'Tanner Thompson',   tab: 'Tanner Thompson',   business: 'Higher Elevations Plumbing' },
@@ -38,7 +37,6 @@ export const NAME_ALIASES = {
   'neil re correll':         'Neil Correll',
   'shawn':                   'Shawn Herlihy',
   'rabbit':                  'Kierstin (Rabbit) Garduno',
-  'jackson':                 'Jackson Diego',
   'jmill':                   'Jordan Milligan',
   'angie':                   'Angelica Lujan',
 }
