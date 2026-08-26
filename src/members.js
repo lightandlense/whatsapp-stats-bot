@@ -60,10 +60,24 @@ export function getMemberByPushName(pushName) {
       return Object.values(MEMBERS).find(m => m.name === name) || null
     }
   }
-  // Partial match (first name)
-  for (const member of Object.values(MEMBERS)) {
-    const firstName = member.name.split(' ')[0].toLowerCase()
-    if (lower.startsWith(firstName)) return member
-  }
+  // Last-name match — disambiguates members who share a first name (two Daniels).
+  const byLast = Object.values(MEMBERS).filter((m) => {
+    const last = m.name.split(' ').pop().toLowerCase()
+    return last.length > 2 && lower.includes(last)
+  })
+  if (byLast.length === 1) return byLast[0]
+
+  // Partial match (first name) — ONLY when it resolves to exactly one member.
+  // Returning the first hit here silently credited every "Daniel*" push name to
+  // Daniel Trost (declared above Daniel Boone), so Boone's stats landed in Trost's
+  // tab and Boone was unreachable. A wrong write is worse than no write: when the
+  // first name is ambiguous, fall through to null so handleMessage logs
+  // "[SKIP] Unknown sender: <jid> (<pushName>)" and the real push name shows up in
+  // the logs, which is what an alias entry needs anyway.
+  const byFirst = Object.values(MEMBERS).filter(
+    (m) => lower.startsWith(m.name.split(' ')[0].toLowerCase())
+  )
+  if (byFirst.length === 1) return byFirst[0]
+
   return null
 }
