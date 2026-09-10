@@ -41,7 +41,20 @@ export const NAME_ALIASES = {
   'angie':                   'Angelica Lujan',
 }
 
+// WhatsApp is gradually migrating contacts to a privacy-preserving "@lid" JID
+// instead of the phone-based "@s.whatsapp.net" one. A LID carries no phone
+// number, so it has to be mapped by hand the first time a member's messages
+// start arriving under one (2026-09-10: Daniel Boone, sender push name was a
+// bare "Daniel" which is ambiguous against Daniel Trost — resolved manually).
+export const LID_ALIASES = {
+  '135309119467589': 'Daniel Boone',
+}
+
 export function getMemberByPhone(jid) {
+  if (jid.endsWith('@lid')) {
+    const name = LID_ALIASES[jid.replace('@lid', '')]
+    return name ? Object.values(MEMBERS).find((m) => m.name === name) || null : null
+  }
   // jid format from Baileys: "17195223331@s.whatsapp.net"
   const phone = jid.replace('@s.whatsapp.net', '').replace('+', '')
   return MEMBERS[phone] || null
