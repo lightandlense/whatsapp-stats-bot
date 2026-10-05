@@ -4,6 +4,8 @@
 // ⚠️  Verify tab names against the actual spreadsheet before running
 
 export const MEMBERS = {
+  // Phone unknown: Aaron only ever arrives as an @lid (see LID_ALIASES), so this key is just unique.
+  'lid-77000693805104': { name: 'Aaron Paul Fleck', tab: 'Aaron Paul Fleck', business: 'Globe Life' },
   '16193018874': { name: 'Angelica Lujan',    tab: 'Angelica Lujan',    business: 'A Universal Cleaning' },
   '17192192190': { name: 'Brandy Pendleton',  tab: 'Brandy Pendleton',  business: 'Pendleton Heating and Cooling' },
   '17194932734': { name: 'Brittney Geisler',  tab: 'Brittney Geisler',  business: 'Closet Factory' },
@@ -48,6 +50,7 @@ export const NAME_ALIASES = {
 // bare "Daniel" which is ambiguous against Daniel Trost — resolved manually).
 export const LID_ALIASES = {
   '135309119467589': 'Daniel Boone',
+  '77000693805104': 'Aaron Paul Fleck',
 }
 
 export function getMemberByPhone(jid) {
