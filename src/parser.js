@@ -75,8 +75,14 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 // case), revisit if a single burst is ever big enough to outlast that.
 const MAX_RETRIES = 20
 
+// Members punctuate the one-to-one shorthand every way ("1:2:1", "1/2/1", "1 2 1").
+// Normalize to "1-2-1" up front instead of teaching the model each variant.
+export const normalizeShorthand = (text) =>
+  text.replace(/(^|[^\d])1\s*[:.\-\/_ ]\s*2\s*[:.\-\/_ ]\s*1(?!\d)/g, (_, pre) => `${pre}1-2-1`)
+
 export async function parseMessage(text) {
   if (!text || text.trim().length === 0) return { has_stats: false, stats: [] }
+  text = normalizeShorthand(text)
 
   let raw = ''
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
