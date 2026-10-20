@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { createServer } from 'http'
-import { mkdirSync, writeFileSync, existsSync, rmSync } from 'fs'
+import { mkdirSync, writeFileSync, existsSync, rmSync, readdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
@@ -199,7 +199,8 @@ async function connect() {
       if (shouldReconnect) setTimeout(connect, 5000)
       else {
         // Logged out: stale creds can never reconnect, so wipe them and come back up showing a fresh QR
-        rmSync('./auth_info', { recursive: true, force: true })
+        // contents only: auth_info is a volume mount point and can't be removed
+        for (const f of readdirSync('./auth_info')) rmSync(join('./auth_info', f), { recursive: true, force: true })
         setTimeout(connect, 2000)
       }
     }
