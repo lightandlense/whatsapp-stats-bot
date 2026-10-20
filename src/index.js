@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { createServer } from 'http'
-import { mkdirSync, writeFileSync, existsSync } from 'fs'
+import { mkdirSync, writeFileSync, existsSync, rmSync } from 'fs'
 import { join, dirname } from 'path'
 import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
@@ -40,7 +40,7 @@ let disconnectedSince = null
 // exit so Railway's restart policy gives us a genuinely fresh container/session.
 const STUCK_DISCONNECTED_MS = 10 * 60 * 1000
 setInterval(() => {
-  if (disconnectedSince && Date.now() - disconnectedSince > STUCK_DISCONNECTED_MS) {
+  if (!currentQR && disconnectedSince && Date.now() - disconnectedSince > STUCK_DISCONNECTED_MS) {
     console.error(`Disconnected for over ${STUCK_DISCONNECTED_MS / 60000} min with no successful reconnect — exiting so Railway restarts fresh.`)
     process.exit(1)
   }
@@ -197,6 +197,11 @@ async function connect() {
       const shouldReconnect = code !== DisconnectReason.loggedOut
       console.log('Connection closed. Code:', code, '— reconnecting:', shouldReconnect)
       if (shouldReconnect) setTimeout(connect, 5000)
+      else {
+        // Logged out: stale creds can never reconnect, so wipe them and come back up showing a fresh QR
+        rmSync('./auth_info', { recursive: true, force: true })
+        setTimeout(connect, 2000)
+      }
     }
   })
 
