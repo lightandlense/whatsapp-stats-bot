@@ -78,7 +78,10 @@ const MAX_RETRIES = 20
 // Members punctuate the one-to-one shorthand every way ("1:2:1", "1/2/1", "1 2 1").
 // Normalize to "1-2-1" up front instead of teaching the model each variant.
 export const normalizeShorthand = (text) =>
-  text.replace(/(^|[^\d])1\s*[:.\-\/_ ]\s*2\s*[:.\-\/_ ]\s*1(?!\d)/g, (_, pre) => `${pre}1-2-1`)
+  text
+    .replace(/(^|[^\d])1\s*[:.\-\/_ ]\s*2\s*[:.\-\/_ ]\s*1(?!\d)/g, (_, pre) => `${pre}1-2-1`)
+    // "1:1's" / "1.1s" is also a one-to-one; only with the plural s so a bare 1:1 ratio is left alone
+    .replace(/(^|[^\d])1\s*[:.\/]\s*1(?=['’]?s\b)/gi, (_, pre) => `${pre}1-2-1`)
 
 export async function parseMessage(text) {
   if (!text || text.trim().length === 0) return { has_stats: false, stats: [] }
