@@ -1,6 +1,6 @@
 import 'dotenv/config'
 import { createServer } from 'http'
-import { mkdirSync, writeFileSync, existsSync, rmSync, readdirSync } from 'fs'
+import { mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync } from 'fs'
 import { join, dirname } from 'path'
 import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, jidNormalizedUser } from '@whiskeysockets/baileys'
 import { Boom } from '@hapi/boom'
@@ -98,6 +98,29 @@ async function findGroup(sock) {
   return null
 }
 
+// 2026-11-04 outage: groupFetchAllParticipating threw WhatsApp "rate-overlimit" (429)
+// on every connect; the throw was uncaught, so the process crashed, Railway restarted it,
+// it asked again and stayed rate-limited (crash loop). Now: env override > cached JID on
+// the volume > lookup with backoff, never throwing.
+const GROUP_CACHE = './auth_info/group_jid.txt'
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function resolveGroup(sock) {
+  if (process.env.WHATSAPP_GROUP_JID) return process.env.WHATSAPP_GROUP_JID
+  if (existsSync(GROUP_CACHE)) return readFileSync(GROUP_CACHE, 'utf8').trim()
+  for (let wait = 60_000; isConnected; wait = Math.min(wait * 2, 15 * 60_000)) {
+    try {
+      const jid = await findGroup(sock)
+      if (jid) writeFileSync(GROUP_CACHE, jid)
+      return jid
+    } catch (err) {
+      console.error(`Group lookup failed (${err.message}), retrying in ${wait / 1000}s`)
+      await sleep(wait)
+    }
+  }
+  return null // disconnected mid-retry; the next 'open' tries again
+}
+
 async function handleMessage(sock, msg) {
   const jid = msg.key.remoteJid
   if (jid !== targetGroupJid) return
@@ -182,7 +205,7 @@ async function connect() {
       disconnectedSince = null
       currentQR = null
       console.log('WhatsApp connected!')
-      targetGroupJid = await findGroup(sock)
+      targetGroupJid = await resolveGroup(sock)
       if (!targetGroupJid) {
         console.error(`Group "${GROUP_NAME}" not found. Set WHATSAPP_GROUP_NAME in env vars.`)
       } else {
