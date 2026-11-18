@@ -83,6 +83,17 @@ export const normalizeShorthand = (text) =>
     // "1:1's" / "1.1s" is also a one-to-one; only with the plural s so a bare 1:1 ratio is left alone
     .replace(/(^|[^\d])1\s*[:.\/]\s*1(?=['’]?s\b)/gi, (_, pre) => `${pre}1-2-1`)
 
+// "1-2-1 - Mike, Matthew, Trey" gives no number, so the model guesses 1.
+// When the post has no digits besides the 1-2-1 shorthand, each named person is one.
+// ponytail: whole-message check; a post mixing numbered and unnumbered lines keeps the model's counts.
+const COUNTED = new Set(['one_to_one', 'outside_referral', 'inside_referral'])
+export function countFromNames(text, result) {
+  if (!result?.stats || /\d/.test(text.replace(/1-2-1/g, ''))) return result
+  const stats = result.stats.map(s =>
+    COUNTED.has(s.type) && s.names?.length > (s.count || 0) ? { ...s, count: s.names.length } : s)
+  return { ...result, stats }
+}
+
 export async function parseMessage(text) {
   if (!text || text.trim().length === 0) return { has_stats: false, stats: [] }
   text = normalizeShorthand(text)
@@ -140,7 +151,7 @@ export async function parseMessage(text) {
 
       const jsonStr = extractFirstJsonObject(raw)
       if (!jsonStr) throw new Error(`no JSON object in response: ${raw.slice(0, 120)}`)
-      return JSON.parse(jsonStr)
+      return countFromNames(text, JSON.parse(jsonStr))
     } catch (err) {
       console.error('Parser failed:', err.message, '| raw:', raw.slice(0, 200))
       return { has_stats: false, stats: [], api_error: true }
