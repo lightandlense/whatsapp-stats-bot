@@ -2,6 +2,9 @@ import { google } from 'googleapis'
 import { readFileSync } from 'fs'
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID
+// Each year gets its own sheet (week labels carry no year). SPREADSHEET_ID_2027 etc.
+// wins for posts dated that year, so the switch happens at midnight on its own.
+export const sheetFor = (date) => process.env[`SPREADSHEET_ID_${date.getFullYear()}`] || SPREADSHEET_ID
 
 // Column letters for each stat type (1-indexed from A)
 const COLUMNS = {
@@ -14,7 +17,11 @@ const COLUMNS = {
   closed_business_amount: 'H',
   closed_business_who:    'I',
   visitors_count:         'J',
+  // 2027+: credited to the member who SENT the referral that closed
+  referral_closed_count:  'K',
+  referral_closed_amount: 'L',
 }
+const GIVER_CREDIT_FROM = 2027
 
 // ponytail: opt-in cell highlight for the test sheet so writes are visible without
 // knowing every column by heart. Set HIGHLIGHT_WRITES=true only on the test deploy.
@@ -44,9 +51,9 @@ function getClient() {
 
 // Find which row corresponds to the given date (a JS Date object)
 // Rows look like "2/11 to 2/17", "6/24 to 6/30", etc.
-async function findWeekRow(sheets, tabName, date) {
+async function findWeekRow(sheets, sid, tabName, date) {
   const result = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: sid,
     range: `'${tabName}'!A:A`,
   })
   const rows = result.data.values || []
@@ -78,21 +85,22 @@ function parseDateRange(rangeStr, year) {
   return { start, end }
 }
 
-async function getSheetId(sheets, tabName) {
-  if (sheetIdCache.has(tabName)) return sheetIdCache.get(tabName)
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
-  for (const s of meta.data.sheets) sheetIdCache.set(s.properties.title, s.properties.sheetId)
-  return sheetIdCache.get(tabName)
+async function getSheetId(sheets, sid, tabName) {
+  const key = `${sid}|${tabName}`
+  if (sheetIdCache.has(key)) return sheetIdCache.get(key)
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: sid })
+  for (const s of meta.data.sheets) sheetIdCache.set(`${sid}|${s.properties.title}`, s.properties.sheetId)
+  return sheetIdCache.get(key)
 }
 
 // Colors the written cell yellow so a changed number stands out at a glance
-async function highlightCell(sheets, tabName, row, col) {
+async function highlightCell(sheets, sid, tabName, row, col) {
   if (!HIGHLIGHT_WRITES) return
-  const sheetId = await getSheetId(sheets, tabName)
+  const sheetId = await getSheetId(sheets, sid, tabName)
   if (sheetId === undefined) return
   const colIndex = col.charCodeAt(0) - 65 // A=0; sheet only uses single-letter columns B-J
   await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: sid,
     requestBody: {
       requests: [{
         repeatCell: {
@@ -106,48 +114,69 @@ async function highlightCell(sheets, tabName, row, col) {
 }
 
 // Append (add) a numeric value to a cell (reading current value first)
-async function addToCell(sheets, tabName, row, col, value) {
+async function addToCell(sheets, sid, tabName, row, col, value) {
   const cellRef = `'${tabName}'!${col}${row}`
   const existing = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: sid,
     range: cellRef,
   })
   const current = parseFloat((existing.data.values?.[0]?.[0] || '').replace(/[$,]/g, '')) || 0
   const newVal = current + value
 
   await sheets.spreadsheets.values.update({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: sid,
     range: cellRef,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[newVal]] },
   })
-  await highlightCell(sheets, tabName, row, col)
+  await highlightCell(sheets, sid, tabName, row, col)
   return newVal
 }
 
 // Append text to a cell (comma-separated if already has value)
-async function appendText(sheets, tabName, row, col, text) {
+async function appendText(sheets, sid, tabName, row, col, text) {
   if (!text) return
   const cellRef = `'${tabName}'!${col}${row}`
   const existing = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: sid,
     range: cellRef,
   })
   const current = (existing.data.values?.[0]?.[0] || '').trim()
   const newVal = current ? `${current}, ${text}` : text
 
   await sheets.spreadsheets.values.update({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: sid,
     range: cellRef,
     valueInputOption: 'USER_ENTERED',
     requestBody: { values: [[newVal]] },
   })
-  await highlightCell(sheets, tabName, row, col)
+  await highlightCell(sheets, sid, tabName, row, col)
 }
 
-export async function writeStats(tabName, stats, messageDate) {
+// Giver credit: "$500 CB, thanks Shawn" also adds +1 and +$500 to Shawn's own tab.
+// resolveTab(name) -> tab or null; ambiguous/unknown names are logged, never guessed.
+export async function creditGivers(sheets, sid, names, amount, messageDate, resolveTab) {
+  const tabs = new Set()
+  for (const n of names) {
+    const tab = resolveTab(n)
+    if (tab) tabs.add(tab)
+    else console.warn(`[CREDIT-SKIP] no unique member for "${n}"`)
+  }
+  const done = []
+  for (const tab of tabs) {
+    const row = await findWeekRow(sheets, sid, tab, messageDate)
+    if (!row) { console.warn(`[CREDIT-SKIP] no week row in "${tab}"`); continue }
+    await addToCell(sheets, sid, tab, row, COLUMNS.referral_closed_count, 1)
+    await addToCell(sheets, sid, tab, row, COLUMNS.referral_closed_amount, amount)
+    done.push(tab)
+  }
+  return done
+}
+
+export async function writeStats(tabName, stats, messageDate, resolveTab = () => null) {
   const sheets = getClient()
-  const row = await findWeekRow(sheets, tabName, messageDate)
+  const sid = sheetFor(messageDate)
+  const row = await findWeekRow(sheets, sid, tabName, messageDate)
 
   if (!row) {
     console.warn(`No matching week row found for date ${messageDate.toDateString()} in tab "${tabName}"`)
@@ -161,20 +190,20 @@ export async function writeStats(tabName, stats, messageDate) {
 
     switch (stat.type) {
       case 'outside_referral':
-        if (stat.count) await addToCell(sheets, tabName, row, COLUMNS.outside_referral_count, stat.count)
-        if (names)      await appendText(sheets, tabName, row, COLUMNS.outside_referral_who, names)
+        if (stat.count) await addToCell(sheets, sid, tabName, row, COLUMNS.outside_referral_count, stat.count)
+        if (names)      await appendText(sheets, sid, tabName, row, COLUMNS.outside_referral_who, names)
         written.push(`outside referral ×${stat.count}`)
         break
 
       case 'inside_referral':
-        if (stat.count) await addToCell(sheets, tabName, row, COLUMNS.inside_referral_count, stat.count)
-        if (names)      await appendText(sheets, tabName, row, COLUMNS.inside_referral_who, names)
+        if (stat.count) await addToCell(sheets, sid, tabName, row, COLUMNS.inside_referral_count, stat.count)
+        if (names)      await appendText(sheets, sid, tabName, row, COLUMNS.inside_referral_who, names)
         written.push(`inside referral ×${stat.count}`)
         break
 
       case 'one_to_one':
-        if (stat.count) await addToCell(sheets, tabName, row, COLUMNS.one_to_one_count, stat.count)
-        if (names)      await appendText(sheets, tabName, row, COLUMNS.one_to_one_who, names)
+        if (stat.count) await addToCell(sheets, sid, tabName, row, COLUMNS.one_to_one_count, stat.count)
+        if (names)      await appendText(sheets, sid, tabName, row, COLUMNS.one_to_one_who, names)
         written.push(`one-to-one ×${stat.count}`)
         break
 
@@ -183,14 +212,18 @@ export async function writeStats(tabName, stats, messageDate) {
         // zero/no-op report (e.g. "CB - 0") - falls back so the log doesn't
         // print "$undefined" for what's really just a reported zero
         const amount = stat.amount ?? stat.count ?? 0
-        if (amount) await addToCell(sheets, tabName, row, COLUMNS.closed_business_amount, amount)
-        if (names)  await appendText(sheets, tabName, row, COLUMNS.closed_business_who, names)
+        if (amount) await addToCell(sheets, sid, tabName, row, COLUMNS.closed_business_amount, amount)
+        if (names)  await appendText(sheets, sid, tabName, row, COLUMNS.closed_business_who, names)
         written.push(`closed $${amount}`)
+        if (amount && messageDate.getFullYear() >= GIVER_CREDIT_FROM && stat.names?.length) {
+          const credited = await creditGivers(sheets, sid, stat.names, amount, messageDate, resolveTab)
+          if (credited.length) written.push(`credited ${credited.join(', ')}`)
+        }
         break
       }
 
       case 'visitors':
-        if (stat.count) await addToCell(sheets, tabName, row, COLUMNS.visitors_count, stat.count)
+        if (stat.count) await addToCell(sheets, sid, tabName, row, COLUMNS.visitors_count, stat.count)
         written.push(`visitors ×${stat.count}`)
         break
     }

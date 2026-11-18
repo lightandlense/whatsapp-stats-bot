@@ -170,7 +170,9 @@ async function handleMessage(sock, msg) {
 
   console.log(`[STATS] ${member.name}:`, parsed.stats)
 
-  const result = await writeStats(member.tab, parsed.stats, msgDate)
+  // thanked names -> member tabs for giver credit (never the poster themselves)
+  const resolveTab = (n) => { const m = getMemberByPushName(n); return m && m.tab !== member.tab ? m.tab : null }
+  const result = await writeStats(member.tab, parsed.stats, msgDate, resolveTab)
   if (result.success) {
     console.log(`[WROTE] row ${result.row} — ${result.written.join(', ')}`)
     await sock.sendMessage(jid, { react: { text: '👍', key: msg.key } })

@@ -31,6 +31,8 @@ export const MEMBERS = {
   '17208818282': { name: 'Thomas Edwards',    tab: 'Thomas Edwards',    business: 'Appliance Factory' },
   // Phone unknown (hidden in screenshot); matched by push name "Lighthouse Roofing" via NAME_ALIASES.
   'name-levi-bachman': { name: 'Levi Bachman', tab: 'Levi Bachman', business: 'Lighthouse Roofing' },
+  // Phone unknown; goes by "Mike". Matched by push name via NAME_ALIASES.
+  'name-michael-lopez': { name: 'Michael Lopez', tab: 'Michael Lopez', business: 'Green Visions Landscaping' },
   '17195089616': { name: 'Trey Kimberlain',   tab: 'Trey Kimberlain',   business: 'JRD Electric' },
 }
 
@@ -44,6 +46,8 @@ export const NAME_ALIASES = {
   'jmill':                   'Jordan Milligan',
   'angie':                   'Angelica Lujan',
   'lighthouse roofing':      'Levi Bachman',
+  'mike':                    'Michael Lopez',
+  'green vision':            'Michael Lopez',
 }
 
 // WhatsApp is gradually migrating contacts to a privacy-preserving "@lid" JID
